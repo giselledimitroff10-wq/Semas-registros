@@ -138,6 +138,7 @@
   .output-card ul, .output-card ol { line-height: 1.55; padding-left: 20px; }
   .output-card table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
   .output-card th, .output-card td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+  .output-card tbody tr td { height: 38px; }
   .output-card th { background: var(--teal-wash); font-family: 'Inter', system-ui, sans-serif; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; font-weight: 500; color: var(--teal-deep); }
   .output-card em { color: var(--teal-deep); }
   .output-card hr { border: none; border-top: 1px dashed var(--line); margin: 20px 0; }
@@ -336,8 +337,20 @@
   function mdToHtml(md) {
     const lines = md.split('\n');
     let html = '', inTable = false, inList = false, listTag = '';
+    let tableCols = 0, tableDataRows = 0;   // columnas y filas de datos de la tabla actual
+    const MIN_EMPTY = 8;                      // filas vacías garantizadas para completar a mano
     const closeList = () => { if (inList) { html += `</${listTag}>`; inList = false; } };
-    const closeTable = () => { if (inTable) { html += '</tbody></table>'; inTable = false; } };
+    const closeTable = () => {
+      if (inTable) {
+        // Agregar filas vacías hasta llegar al mínimo (las filas de datos ya incluyen el ejemplo)
+        const faltan = Math.max(0, MIN_EMPTY - (tableDataRows - 1));
+        for (let k = 0; k < faltan; k++) {
+          html += '<tr>' + Array(tableCols).fill('<td>&nbsp;</td>').join('') + '</tr>';
+        }
+        html += '</tbody></table>';
+        inTable = false; tableCols = 0; tableDataRows = 0;
+      }
+    };
     const inline = s => s
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -346,8 +359,12 @@
       if (/^\s*\|(.+)\|\s*$/.test(l)) {
         const cells = l.split('|').slice(1, -1).map(c => c.trim());
         if (/^[-:\s|]+$/.test(l.replace(/\|/g,''))) continue;
-        if (!inTable) { closeList(); html += '<table><tbody>'; inTable = true;
+        if (!inTable) { closeList(); html += '<table><tbody>'; inTable = true; tableCols = cells.length; tableDataRows = 0;
           html += '<tr>' + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr>'; continue; }
+        // ¿es una fila vacía generada por la IA? si lo es, la salteamos (las agregamos nosotros al final)
+        const vacia = cells.every(c => c === '' || c === '&nbsp;');
+        if (vacia) continue;
+        tableDataRows++;
         html += '<tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'; continue;
       } else { closeTable(); }
       if (/^###\s/.test(l)) { closeList(); html += `<h3>${inline(l.replace(/^###\s/,''))}</h3>`; }
