@@ -141,6 +141,17 @@
   .output-card tbody tr td { height: 38px; }
   .output-card th { background: var(--teal-wash); font-family: 'Inter', system-ui, sans-serif; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; font-weight: 500; color: var(--teal-deep); }
   .output-card em { color: var(--teal-deep); }
+  .output-card p.nota-clinica {
+    background: #f0f6f6; border-left: 3px solid var(--teal-soft);
+    border-radius: 0 4px 4px 0; padding: 12px 16px; margin-top: 18px;
+    font-size: 13.5px;
+  }
+  .output-card p.nota-clinica::before {
+    content: "Solo para el clínico — no se imprime";
+    display: block; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--teal); margin-bottom: 6px;
+  }
   .output-card hr { border: none; border-top: 1px dashed var(--line); margin: 20px 0; }
 
   .toolbar { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
@@ -180,7 +191,7 @@
   .err { color: #b3522f; font-family: 'Inter', system-ui, sans-serif; font-size: 13px; padding: 10px 0; }
   .footnote { font-family: 'Inter', system-ui, sans-serif; font-size: 10.5px; color: var(--teal-soft); margin-top: 22px; line-height: 1.6; text-align: center; }
   @media print {
-    .panel, .masthead, .footnote, .toolbar, .gate { display: none !important; }
+    .panel, .masthead, .footnote, .toolbar, .gate, .nota-clinica { display: none !important; }
     .app { padding: 0; max-width: 100%; background: #fff; }
     .output { margin: 0; }
     .output-card { border: none; box-shadow: none; padding: 0; border-top: none; }
@@ -374,7 +385,10 @@
       else if (/^\s*\d+\.\s/.test(l)) { if (!inList || listTag !== 'ol') { closeList(); html += '<ol>'; inList = true; listTag='ol'; } html += `<li>${inline(l.replace(/^\s*\d+\.\s/,''))}</li>`; }
       else if (/^\s*---\s*$/.test(l)) { closeList(); html += '<hr>'; }
       else if (l.trim() === '') { closeList(); }
-      else { closeList(); html += `<p>${inline(l)}</p>`; }
+      else { closeList();
+        const esNotaClinica = /^\s*[*_]*\s*(nota\s+(cl[ií]nica|para\s+(vos|el|la)\s+cl|para\s+el?\s+profesional)|nota\s+para\s+(vos|ti|usted)\s+como\s+cl|para\s+(el|la)\s+cl[ií]nic|para\s+el\s+profesional|recomendaci[oó]n\s+para\s+el\s+cl)/i.test(l.replace(/[*_]/g,'').trim());
+        html += `<p class="${esNotaClinica ? 'nota-clinica' : ''}">${inline(l)}</p>`;
+      }
     }
     closeList(); closeTable();
     return html;
@@ -405,7 +419,7 @@ AJUSTES SOLICITADOS: ${document.getElementById('extra').value || 'ninguno'}
 
 Instrucciones generales:
 - Devolvé SOLO el material en formato Markdown, sin preámbulos ni comentarios meta.
-- Estructura: título; instrucción/encuadre breve (2-3 frases) en el nivel de lenguaje pedido; la hoja como TABLA Markdown con las columnas propias del tipo; UNA fila de ejemplo resuelta (su primera celda debe empezar con "Ej.:"); EXACTAMENTE 8 filas completamente vacías para completar a mano; y una nota final para el clínico EN ITÁLICA.
+- Estructura: título; instrucción/encuadre breve (2-3 frases) en el nivel de lenguaje pedido; la hoja como TABLA Markdown con las columnas propias del tipo; UNA fila de ejemplo resuelta (su primera celda debe empezar con "Ej.:"); EXACTAMENTE 8 filas completamente vacías para completar a mano; y una nota final para el clínico EN ITÁLICA que DEBE empezar exactamente con "Nota clínica:" (en itálica), para distinguirla de la instrucción al paciente.
 - CONTROL DE INVENCIÓN (importante): la única fila con contenido es la de ejemplo, y debe basarse SOLO en el motivo/caso que escribió el clínico. No inventes datos clínicos que no se aportaron: no agregues diagnósticos, antecedentes, edad, género, historia ni detalles del consultante que no estén en el texto recibido. Si para ilustrar el ejemplo hace falta un dato que no se dio, usá un marcador genérico (ej. "[situación concreta]") en vez de inventarlo. Las 8 filas restantes van completamente en blanco, sin sugerencias ni texto de relleno.
 - La nota clínica debe ser específica al caso aportado: señalar las distorsiones o procesos presentes EN LO QUE ESCRIBIÓ EL CLÍNICO, advertir el riesgo clínico propio de este registro, y sugerir cómo introducir la tarea. No afirmes hechos sobre el consultante que no se dieron.
 - Español rioplatense neutro, clínicamente correcto.
