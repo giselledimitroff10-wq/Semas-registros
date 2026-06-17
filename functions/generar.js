@@ -1,16 +1,9 @@
 // Función-proxy de Netlify para el Generador de Registros — Instituto SEMAS
-//
-// Qué hace:
-//   1. Valida la clave de acceso (la que vos elegís y compartís con los psicólogos).
-//   2. Recibe el prompt del navegador y llama a la API de Anthropic con TU clave secreta.
-//   3. Devuelve solo el texto generado. Tu clave de Anthropic nunca llega al navegador.
-//
-// Variables de entorno que tenés que cargar en Netlify (Site settings > Environment variables):
-//   ANTHROPIC_API_KEY  -> tu clave de console.anthropic.com (empieza con sk-ant-...)
-//   ACCESS_KEY         -> la contraseña de acceso que vos inventás (ej: "semas2025")
+// Variables de entorno necesarias en Netlify:
+//   ANTHROPIC_API_KEY  -> clave de console.anthropic.com (sk-ant-...)
+//   ACCESS_KEY         -> contraseña de acceso para los psicólogos
 
 exports.handler = async (event) => {
-  // Solo aceptamos POST
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -22,25 +15,24 @@ exports.handler = async (event) => {
   try {
     body = JSON.parse(event.body || "{}");
   } catch {
-    return { statusCode: 400, body: "JSON inválido" };
+    return { statusCode: 400, body: JSON.stringify({ error: "JSON inválido" }) };
   }
 
-  // --- Validación de la clave de acceso ---
+  // Validación de la clave de acceso
   if (!ACCESS_KEY || body.key !== ACCESS_KEY) {
-    return { statusCode: 401, body: "No autorizado" };
+    return { statusCode: 401, body: JSON.stringify({ error: "No autorizado" }) };
   }
 
-  // El navegador solo está chequeando la clave (pantalla de acceso)
+  // Solo chequeo de clave (pantalla de acceso)
   if (body.check === true) {
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   }
 
-  // --- Generación del registro ---
   if (!body.prompt) {
-    return { statusCode: 400, body: "Falta el prompt" };
+    return { statusCode: 400, body: JSON.stringify({ error: "Falta el prompt" }) };
   }
   if (!ANTHROPIC_API_KEY) {
-    return { statusCode: 500, body: "Falta configurar ANTHROPIC_API_KEY" };
+    return { statusCode: 200, body: JSON.stringify({ error: "Falta configurar ANTHROPIC_API_KEY en Netlify" }) };
   }
 
   try {
@@ -52,18 +44,26 @@ exports.handler = async (event) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 2000,
         messages: [{ role: "user", content: body.prompt }],
       }),
     });
 
+    const raw = await r.text();
+
+    // Si Anthropic devolvió un error, lo pasamos legible al navegador (status 200 para que el front lo lea)
     if (!r.ok) {
-      const errText = await r.text();
-      return { statusCode: 502, body: "Error de la API: " + errText };
+      let detalle = raw;
+      try { detalle = JSON.parse(raw).error?.message || raw; } catch {}
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Anthropic respondió " + r.status + ": " + detalle }),
+      };
     }
 
-    const data = await r.json();
+    const data = JSON.parse(raw);
     const text = (data.content || [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
@@ -75,6 +75,10 @@ exports.handler = async (event) => {
       body: JSON.stringify({ text }),
     };
   } catch (e) {
-    return { statusCode: 500, body: "Error interno: " + String(e) };
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Error interno: " + String(e) }),
+    };
   }
 };
