@@ -438,8 +438,8 @@ Reglas por tipo (respetar la lógica de cada enfoque, no mezclar):
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt, key: ACCESS_KEY })
       });
-      if (!res.ok) throw new Error("fallo proxy");
       const data = await res.json();
+      if (data.error) throw new Error(data.error);
       const text = (data.text || "").trim();
       if (!text) throw new Error("respuesta vacía");
 
@@ -458,7 +458,7 @@ Reglas por tipo (respetar la lógica de cada enfoque, no mezclar):
         document.getElementById('copyBtn').textContent = 'Copiado ✓';
       };
     } catch (e) {
-      out.innerHTML = `<div class="output-card"><div class="err">No se pudo generar el registro. Intentá de nuevo en unos segundos.</div></div>`;
+      out.innerHTML = `<div class="output-card"><div class="err">No se pudo generar el registro.<br><br>Detalle: ${String(e.message || e)}</div></div>`;
     } finally {
       btn.disabled = false;
     }
